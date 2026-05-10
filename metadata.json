@@ -1,0 +1,6 @@
+{
+  "name": "Thonmai",
+  "description": "An ancient to modern Tamil transliteration system with century detection and OCR support.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}
