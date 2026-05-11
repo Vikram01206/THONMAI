@@ -1,7 +1,18 @@
 import { GoogleGenAI, Type, Modality } from "@google/genai";
 import { assembleTamilText, RecognizedChar } from "../lib/tamilComposer";
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+let genAI: GoogleGenAI | null = null;
+
+function getAI() {
+  if (!genAI) {
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      throw new Error("GEMINI_API_KEY is not defined. Please set it in your environment variables.");
+    }
+    genAI = new GoogleGenAI({ apiKey });
+  }
+  return genAI;
+}
 
 export type PipelineMode = 'literal' | 'historical';
 
@@ -41,7 +52,7 @@ export interface OCRResult {
 
 export async function generateSpeech(text: string): Promise<string> {
   try {
-    const response = await ai.models.generateContent({
+    const response = await getAI().models.generateContent({
       model: "gemini-3.1-flash-tts-preview",
       contents: [{ parts: [{ text: `Say clearly in Tamil: ${text}` }] }],
       config: {
@@ -104,7 +115,7 @@ export async function performOCROnInscription(
       },
     };
 
-    const response = await ai.models.generateContent({
+    const response = await getAI().models.generateContent({
       model: "gemini-3-flash-preview",
       contents: { parts: [imagePart, { text: prompt }] },
       config: {
@@ -199,7 +210,7 @@ export async function reconstructHistorical(
   `;
 
   try {
-    const response = await ai.models.generateContent({
+    const response = await getAI().models.generateContent({
       model: "gemini-3-flash-preview",
       contents: { parts: [{ text: prompt }] },
     });
@@ -251,7 +262,7 @@ export async function reconstructTamil(
   `;
 
   try {
-    const response = await ai.models.generateContent({
+    const response = await getAI().models.generateContent({
       model: "gemini-3-flash-preview",
       contents: prompt,
       config: {
