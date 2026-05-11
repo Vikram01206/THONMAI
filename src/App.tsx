@@ -17,7 +17,10 @@ import {
   AlertCircle,
   Volume2,
   ArrowLeftRight,
-  FileText
+  FileText,
+  HelpCircle,
+  Check,
+  X
 } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -30,17 +33,31 @@ const BRAHMI_CANDIDATES: Record<string, Array<{char: string, prob: number}>> = {
   '𑀔': [{ char: 'க²', prob: 0.95 }, { char: 'க', prob: 0.05 }],
   '𑀕': [{ char: 'க³', prob: 0.92 }, { char: 'க', prob: 0.08 }],
   '𑀘': [{ char: 'ச', prob: 0.96 }, { char: 'த', prob: 0.04 }],
-  '𑀢': [{ char: 'த', prob: 0.94 }, { char: 'ட', prob: 0.06 }],
+  '𑀜': [{ char: 'ஞ', prob: 0.90 }],
   '𑀝': [{ char: 'ட', prob: 0.92 }, { char: 'ற', prob: 0.05 }, { char: 'த', prob: 0.03 }],
-  '𑀶': [{ char: 'ற', prob: 0.91 }, { char: 'ட', prob: 0.09 }],
+  '𑀢': [{ char: 'த', prob: 0.94 }, { char: 'ட', prob: 0.06 }],
+  '𑀦': [{ char: 'ந', prob: 0.95 }],
+  '𑀧': [{ char: 'ப', prob: 0.96 }],
+  '𑀫': [{ char: 'ம', prob: 0.95 }],
+  '𑀬': [{ char: 'ய', prob: 0.95 }],
+  '𑀭': [{ char: 'ர', prob: 0.95 }],
   '𑀮': [{ char: 'ல', prob: 0.85 }, { char: 'ள', prob: 0.10 }, { char: 'ழ', prob: 0.05 }],
+  '𑀯': [{ char: 'வ', prob: 0.95 }],
+  '𑀶': [{ char: 'ற', prob: 0.91 }, { char: 'ட', prob: 0.09 }],
+  '𑀷': [{ char: 'ன', prob: 0.95 }],
+  '𑀡': [{ char: 'ண', prob: 0.95 }],
   '𑀴': [{ char: 'ள', prob: 0.82 }, { char: 'ல', prob: 0.12 }, { char: 'ழ', prob: 0.06 }],
   '𑀵': [{ char: 'ழ', prob: 0.88 }, { char: 'ள', prob: 0.08 }, { char: 'ல', prob: 0.04 }],
   '𑀅': [{ char: 'அ', prob: 0.99 }],
   '𑀆': [{ char: 'ஆ', prob: 0.99 }],
   '𑀇': [{ char: 'இ', prob: 0.99 }],
-  '𑀏': [{ char: 'ஏ', prob: 0.99 }],
+  '𑀉': [{ char: 'உ', prob: 0.95 }],
+  '𑀏': [{ char: 'எ', prob: 0.99 }],
+  '𑀐': [{ char: 'ஏ', prob: 0.99 }],
+  '𑀑': [{ char: 'ஒ', prob: 0.95 }],
+  '𑀒': [{ char: 'ஓ', prob: 0.95 }],
   '𑀼': [{ char: 'ு', prob: 0.99 }],
+  '𑀽': [{ char: 'ூ', prob: 0.99 }],
   '𑀸': [{ char: 'ா', prob: 0.99 }],
   '𑀺': [{ char: 'ி', prob: 0.99 }],
   '𑀻': [{ char: 'ீ', prob: 0.99 }],
@@ -117,14 +134,28 @@ interface HistoryItem {
   era?: string;
 }
 
+const THIRUKKURALS_BRAHMI = [
+  '𑀅𑀓𑀭 𑀫𑀼𑀢𑀮 𑀏𑀵𑀼𑀢𑁆𑀢𑁂𑀮𑁆𑀮𑀸𑀫𑁆 𑀆𑀢𑀺 𑀧𑀓𑀯𑀦𑁆 𑀫𑀼𑀢𑀶𑁆𑀶𑁂 𑀉𑀮𑀓𑀼',
+  '𑀓𑀶𑁆𑀓 𑀓𑀘𑀝𑀶𑁆𑀓 𑀓𑀶𑁆𑀧𑀯𑁃 𑀓𑀶𑁆𑀶𑀧𑀺𑀦𑁆 𑀦𑀺𑀶𑁆𑀓 𑀅𑀢𑀶𑁆𑀓𑀼𑀢𑁆 𑀢𑀓',
+  '𑀢𑁂𑀬𑁆𑀯𑀢𑁆𑀢𑀸𑀮𑁆 𑀆𑀓𑀸𑀢𑀼 𑀏𑀦𑀺𑀦𑀼𑀫𑁆 𑀫𑀼𑀬𑀶𑁆𑀘𑀺 𑀢𑀦𑁆 𑀫𑁂𑀬𑁆 𑀯𑀭𑀼𑀢𑁆𑀢𑀓𑁆 𑀓𑀽𑀮𑀺 𑀢𑀭𑀼𑀫𑁆',
+  '𑀏𑀧𑁆𑀧𑁄𑀭𑀼𑀴𑁆 𑀏𑀢𑁆𑀢𑀦𑁆𑀫𑁃 𑀢𑁆𑀢𑀸𑀬𑀺𑀦𑀼𑀫𑁆 𑀅𑀧𑁆𑀧𑁄\u0300𑀭𑀼𑀴𑁆 𑀫𑁂𑀬𑁆𑀧𑁆𑀧𑁄\u0300𑀭𑀼𑀴𑁆 𑀓𑀸𑀡𑁆𑀧𑀢𑀶𑀺𑀯𑀼',
+  '𑀅𑀦𑁆𑀧𑀺 \u0300𑀮𑀸𑀭𑁆 𑀏𑀮𑁆𑀮𑀸𑀫𑁆 𑀢𑀫𑀓𑁆𑀓𑀼𑀭𑀺\u0300𑀬𑀭𑁆 𑀅𑀦𑁆𑀧𑀼\u0300𑀝𑁃\u0300𑀬𑀸𑀭𑁆 𑀏𑀦𑁆𑀧𑀼\u0300𑀫𑁆 𑀉\u0300𑀭𑀺\u0300𑀬𑀭𑁆 𑀧𑀺𑀶𑀶𑁆𑀓𑁆𑀓𑀼'
+];
+
 export default function App() {
-  const [inputText, setInputText] = useState('𑀓𑀼𑀭𑀴𑁆 𑀅𑀶𑀢𑁆𑀢𑀼𑀧𑁆𑀧𑀸𑀮𑁆');
+  const [inputText, setInputText] = useState('');
+
+  useEffect(() => {
+    // Pick random Kural on load
+    const randomIndex = Math.floor(Math.random() * THIRUKKURALS_BRAHMI.length);
+    setInputText(THIRUKKURALS_BRAHMI[randomIndex]);
+  }, []);
   const [result, setResult] = useState<ReconstructionResult | null>(null);
   const [stage, setStage] = useState<PipelineStage>(PipelineStage.IDLE);
   const [candidates, setCandidates] = useState<GlyphCandidate[]>([]);
   const [selectedEra, setSelectedEra] = useState(TIMELINE_EVENTS[0]);
   const [pipelineMode, setPipelineMode] = useState<PipelineMode>('historical');
-  const [activeView, setActiveView] = useState<'prompt' | 'visualizer' | 'ocr' | 'reconstruct' | 'history'>('prompt');
+  const [activeView, setActiveView] = useState<'prompt' | 'visualizer' | 'ocr' | 'reconstruct' | 'history' | 'documentation'>('prompt');
   const [history, setHistory] = useState<HistoryItem[]>([]);
   
   // OCR specific states
@@ -327,7 +358,7 @@ export default function App() {
       era: selectedEra.label
     }, ...prev]);
     setStage(PipelineStage.COMPLETE);
-  }, [inputText, selectedEra]);
+  }, [inputText, selectedEra, pipelineMode]);
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -363,10 +394,10 @@ export default function App() {
   };
 
   useEffect(() => {
-    if (activeView === 'prompt') {
+    if (inputText && activeView === 'prompt') {
       runPipeline();
     }
-  }, [selectedEra]);
+  }, [selectedEra, inputText, activeView]);
 
   return (
     <div className="flex flex-col h-screen bg-brand-dark text-brand-parchment font-serif overflow-hidden select-none">
@@ -412,6 +443,13 @@ export default function App() {
         </div>
 
         <div className="flex items-center gap-8">
+          <button 
+            onClick={() => setActiveView('documentation')}
+            className={`flex items-center gap-2 px-4 py-2 text-[10px] uppercase tracking-widest border transition-all ${activeView === 'documentation' ? 'bg-brand-red text-white border-brand-red' : 'border-brand-parchment/20 hover:border-brand-red/50 opacity-60 hover:opacity-100'}`}
+          >
+            <HelpCircle className="w-3.5 h-3.5" />
+            Documentation
+          </button>
           <div className="flex gap-2 bg-black/40 p-1 rounded-sm border border-brand-parchment/10">
             <button 
               onClick={() => setPipelineMode('literal')}
@@ -423,7 +461,7 @@ export default function App() {
               onClick={() => setPipelineMode('historical')}
               className={`px-3 py-1 text-[9px] uppercase tracking-tighter transition-all ${pipelineMode === 'historical' ? 'bg-brand-red text-white' : 'opacity-40 hover:opacity-100'}`}
             >
-              Historical
+              Bi-Directional
             </button>
           </div>
           <div className="flex gap-4">
@@ -443,7 +481,19 @@ export default function App() {
       </header>
 
       {/* Main UI */}
-      <main className="flex-1 flex gap-0 overflow-hidden">
+      <main className="flex-1 flex gap-0 overflow-hidden relative">
+        <AnimatePresence>
+          {activeView === 'documentation' && (
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.98 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.98 }}
+              className="absolute inset-0 z-[60] bg-brand-dark flex flex-col overflow-hidden"
+            >
+              <DocumentationView onClose={() => setActiveView('prompt')} />
+            </motion.div>
+          )}
+        </AnimatePresence>
         
         {/* Left: Neural Pipeline Visualization & Prompting */}
         <section className="w-[45%] border-r border-brand-parchment/10 bg-[#0A0A0A] flex flex-col overflow-hidden">
@@ -471,7 +521,7 @@ export default function App() {
               className={`flex-1 py-4 text-[10px] uppercase tracking-widest font-sans transition-all relative ${activeView === 'reconstruct' ? 'text-brand-red bg-brand-red/5 font-bold' : 'opacity-40 hover:opacity-100'}`}
             >
               <span className="flex items-center justify-center gap-2">
-                <History className="w-3 h-3" /> Historical
+                <ArrowLeftRight className="w-3 h-3" /> Translator
               </span>
               {activeView === 'reconstruct' && <motion.div layoutId="view-tab" className="absolute bottom-0 left-0 right-0 h-[2px] bg-brand-red" />}
             </button>
@@ -663,10 +713,10 @@ export default function App() {
                 >
                    <div className="space-y-4">
                       <h3 className="text-xs uppercase tracking-[0.2em] font-bold flex items-center gap-3">
-                        <div className="w-1.5 h-1.5 bg-brand-red rounded-full" /> Modern → Historical
+                        <div className="w-1.5 h-1.5 bg-brand-red rounded-full" /> Bi-Directional Translator
                       </h3>
                       <p className="text-[10px] uppercase tracking-widest opacity-40 leading-relaxed">
-                        Input modern Tamil text to reconstruct its historical script and orthographic form.
+                        Input modern Tamil text to translate into historical scripts (Brahmi, Vatteluttu, Grantha), or input ancient glyphs to retrieve modern meaning.
                       </p>
                       
                       <div className="space-y-6">
@@ -711,13 +761,13 @@ export default function App() {
                             animate={{ opacity: 1, y: 0 }}
                             className="p-8 bg-brand-red/5 border border-brand-red/20 text-center space-y-4"
                           >
-                            <span className="text-[9px] uppercase tracking-widest opacity-40 block">Historical Reconstruction</span>
+                            <span className="text-[9px] uppercase tracking-widest opacity-40 block">Bi-Directional Neural translation</span>
                             <p className="text-6xl font-bold tracking-tighter text-brand-red break-all line-height-tight">
                               {historicalOutput}
                             </p>
                             <div className="flex items-center justify-center gap-4 pt-4">
                                <div className="h-[1px] flex-1 bg-brand-red/10" />
-                               <span className="text-[8px] uppercase tracking-widest opacity-40 whitespace-nowrap">Authentic {targetEra.label} Script</span>
+                               <span className="text-[8px] uppercase tracking-widest opacity-40 whitespace-nowrap">Authentic {targetEra.label} Script (Neural Reconstruction)</span>
                                <div className="h-[1px] flex-1 bg-brand-red/10" />
                             </div>
                           </motion.div>
@@ -871,7 +921,7 @@ export default function App() {
             <div className="flex justify-between items-end">
               <div>
                 <span className="text-[9px] uppercase tracking-widest opacity-40 font-sans block mb-1">Active Model</span>
-                <span className="text-sm font-bold text-brand-red">Historical-Tamil-Transformer-v3</span>
+                <span className="text-sm font-bold text-brand-red">Bi-Directional-Epigraphic-Core-v4</span>
               </div>
               <div className="text-right">
                 <span className="text-[9px] uppercase tracking-widest opacity-40 font-sans block mb-1">Decoding Strategy</span>
@@ -893,13 +943,13 @@ export default function App() {
         </section>
 
         {/* Right: Reconstruction Output */}
-        <section className="flex-1 bg-brand-parchment text-brand-dark p-12 flex flex-col relative">
+        <section className="flex-1 bg-brand-parchment text-brand-dark overflow-y-auto relative scrollbar-thin scrollbar-thumb-brand-red/20">
           <div className="absolute inset-0 pointer-events-none opacity-[0.03] overflow-hidden flex items-center justify-center">
              <span className="text-[600px] font-black rotate-12">தமிழ்</span>
           </div>
 
-          <div className="relative z-10 flex flex-col h-full">
-            <div className="flex items-center justify-between mb-12">
+          <div className="relative z-10 flex flex-col min-h-full p-12">
+            <div className="flex items-center justify-between mb-12 shrink-0">
               <h2 className="text-xs uppercase tracking-[0.5em] font-black border-l-[6px] border-brand-red pl-6">Neural Reconstruction</h2>
               <div className="flex gap-4">
                 <button 
@@ -919,7 +969,7 @@ export default function App() {
               </div>
             </div>
 
-            <div className="flex-1 flex flex-col justify-center max-w-2xl px-4">
+            <div className="flex-1 flex flex-col justify-center max-w-4xl px-4">
               <AnimatePresence mode="wait">
                 {stage === PipelineStage.RECONSTRUCTION ? (
                     <motion.div 
@@ -939,7 +989,7 @@ export default function App() {
                     key="result"
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="space-y-12"
+                    className="space-y-12 py-8"
                   >
                     <div>
                       <div className="flex items-center justify-between mb-4">
@@ -955,11 +1005,11 @@ export default function App() {
                           {isSpeaking ? 'Speaking...' : 'Listen Pronunciation'}
                         </motion.button>
                       </div>
-                      <p className="text-7xl font-bold tracking-tighter leading-[1.1] mb-2 leading-tight">
+                      <p className="text-5xl md:text-7xl font-bold tracking-tighter leading-[1.1] mb-2 leading-tight break-words">
                         {result?.modernTamil || 'INIT_SEQ...'}
                       </p>
                       
-                      <p className="text-lg font-mono opacity-40 mb-8 uppercase tracking-widest">
+                      <p className="text-lg font-mono opacity-40 mb-8 uppercase tracking-widest break-words leading-relaxed">
                         {result?.phoneticTransliteration}
                       </p>
                       
@@ -972,21 +1022,51 @@ export default function App() {
                       </div>
                     </div>
 
-                    <div className="p-8 border-l-2 border-brand-red/20 bg-black/5">
-                      <h4 className="text-[10px] uppercase tracking-widest font-bold mb-4 flex items-center gap-2">
-                        <Brain className="w-3 h-3 text-brand-red" /> Historical Context Engine
-                      </h4>
-                      <p className="text-xl leading-relaxed italic opacity-80 serif">
+                    <div className="p-8 border-l-2 border-brand-red/20 bg-black/[0.03]">
+                      <div className="flex justify-between items-center mb-4">
+                        <h4 className="text-[10px] uppercase tracking-widest font-black flex items-center gap-2 opacity-60">
+                          <Brain className="w-3 h-3 text-brand-red" /> Bi-Directional Context Engine
+                        </h4>
+                        <span className="text-[9px] px-2 py-0.5 bg-brand-red text-white font-black uppercase tracking-widest">
+                          {activeView === 'reconstruct' ? targetEra.label : selectedEra.label}
+                        </span>
+                      </div>
+                      <p className="text-xl leading-relaxed italic font-bold text-black serif">
                         "{result?.grammarCorrectionNote || 'Ancient glyph patterns analyzed against Sangam literature corpus.'}"
                       </p>
                     </div>
+
+                    {result?.compositionDebug && result.compositionDebug.length > 0 && (
+                      <div className="mt-8 pt-8 border-t border-black/5">
+                        <h4 className="text-[10px] uppercase tracking-widest font-bold mb-4 flex items-center gap-2 opacity-40">
+                          <Cpu className="w-3 h-3" /> Composition Diagnostics
+                        </h4>
+                        <div className="space-y-1 font-mono text-[9px] opacity-40 max-h-32 overflow-y-auto scrollbar-thin scrollbar-thumb-brand-red/10">
+                          {result.compositionDebug.map((log, i) => (
+                            <div key={i} className="flex gap-2">
+                              <span className="text-brand-red">[{i}]</span>
+                              <span>{log}</span>
+                            </div>
+                          ))}
+                        </div>
+                        {result.compositionWarnings && result.compositionWarnings.length > 0 && (
+                          <div className="mt-3 space-y-1">
+                            {result.compositionWarnings.map((warning, i) => (
+                              <div key={i} className="flex items-center gap-2 text-brand-red text-[9px] font-bold uppercase tracking-widest">
+                                 <AlertCircle className="w-2.5 h-2.5" /> {warning}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </motion.div>
                 )}
               </AnimatePresence>
             </div>
 
             {/* Stats Footbar */}
-            <div className="mt-auto border-t border-black/5 pt-12 flex justify-between items-center opacity-40">
+            <div className="mt-12 border-t border-black/5 pt-12 flex justify-between items-center opacity-40 shrink-0">
                <div className="flex gap-8">
                  <div>
                     <span className="text-[9px] uppercase tracking-widest font-sans block">Processing Speed</span>
@@ -1008,25 +1088,43 @@ export default function App() {
 
       {/* Footer Timeline */}
       <footer className="h-28 bg-[#050505] border-t border-brand-red/20 flex items-center px-8 gap-12 shrink-0 z-50">
-        <div className="w-40">
+        <div className="w-44 flex flex-col overflow-hidden">
            <span className="text-[9px] uppercase font-sans tracking-widest opacity-40 mb-1 block">Weight Bias</span>
-           <div className="text-sm font-bold truncate text-brand-red uppercase">{selectedEra.label}</div>
+           <AnimatePresence mode="wait">
+             <motion.div 
+               key={activeView === 'reconstruct' ? targetEra.label : selectedEra.label}
+               initial={{ opacity: 0, y: 10 }}
+               animate={{ opacity: 1, y: 0 }}
+               exit={{ opacity: 0, y: -10 }}
+               className="text-sm font-bold truncate text-brand-red uppercase flex items-center gap-2"
+             >
+               <div className="w-1 h-1 bg-brand-red rounded-full animate-pulse" />
+               {activeView === 'reconstruct' ? targetEra.label : selectedEra.label}
+             </motion.div>
+           </AnimatePresence>
         </div>
         
         <div className="flex-1 relative flex items-center h-full">
           <div className="h-[1px] w-full bg-brand-parchment/10 absolute top-1/2 -translate-y-1/2"></div>
           <div className="flex justify-between w-full relative">
             {TIMELINE_EVENTS.map((event, idx) => {
-              const isSelected = selectedEra.era === event.era;
+              const isActive = activeView === 'reconstruct' ? targetEra.era === event.era : selectedEra.era === event.era;
               return (
                 <div 
                   key={idx} 
-                  onClick={() => !isProcessing && setSelectedEra(event)}
-                  className={`flex flex-col items-center group cursor-pointer transition-all ${isProcessing ? 'pointer-events-none opacity-20' : isSelected ? 'opacity-100' : 'opacity-30 hover:opacity-100'}`}
+                  onClick={() => {
+                    if (isProcessing) return;
+                    if (activeView === 'reconstruct') {
+                      setTargetEra(event);
+                    } else {
+                      setSelectedEra(event);
+                    }
+                  }}
+                  className={`flex flex-col items-center group cursor-pointer transition-all ${isProcessing ? 'pointer-events-none opacity-20' : isActive ? 'opacity-100' : 'opacity-30 hover:opacity-100'}`}
                 >
                   <motion.div 
-                    animate={isSelected ? { scale: [1, 1.2, 1], rotate: [0, 90, 0] } : {}}
-                    className={`w-3 h-3 rounded-sm transition-all duration-500 mb-2 rotate-45 border ${isSelected ? 'bg-brand-red border-brand-red shadow-[0_0_15px_rgba(180,0,35,0.5)]' : 'border-brand-parchment/40 bg-transparent'}`} 
+                    animate={isActive ? { scale: [1, 1.2, 1], rotate: [0, 90, 0] } : {}}
+                    className={`w-3 h-3 rounded-sm transition-all duration-500 mb-2 rotate-45 border ${isActive ? 'bg-brand-red border-brand-red shadow-[0_0_15px_rgba(180,0,35,0.5)]' : 'border-brand-parchment/40 bg-transparent'}`} 
                   />
                   <span className="text-[10px] font-bold mb-0.5">{event.era}</span>
                   <span className="text-[8px] uppercase tracking-tighter opacity-50 font-sans">{event.label}</span>
@@ -1036,12 +1134,7 @@ export default function App() {
           </div>
         </div>
 
-        <div className="flex gap-12 items-center border-l border-brand-parchment/10 pl-12 font-sans">
-           <div className="flex gap-4">
-              <Metric label="Latency" value="1.2s" color="text-amber-500" />
-              <Metric label="VRAM" value="8.4GB" />
-              <Metric label="Accuracy" value="99.2%" />
-           </div>
+        <div className="flex gap-6 items-center border-l border-brand-parchment/10 pl-12 font-sans">
            <Settings className="w-5 h-5 opacity-40 hover:opacity-100 cursor-pointer transition-opacity" />
         </div>
       </footer>
@@ -1060,11 +1153,163 @@ function StageIndicator({ current, tag, label }: { current: PipelineStage, tag: 
   );
 }
 
-function Metric({ label, value, color = "text-white" }: { label: string, value: string, color?: string }) {
+function DocumentationView({ onClose }: { onClose: () => void }) {
+  const sections = [
+    {
+      id: 'intro',
+      title: 'Project Overview',
+      icon: <Cpu className="w-4 h-4" />,
+      content: 'Thonmai (Ancient) is a sophisticated neural reconstruction engine specifically designed for deciphering and restoring ancient Tamil scripts including Brahmi, Vatteluttu, and early Grantha. Using a transformer-based architecture, it bridges the gap between historical epigraphy and modern linguistic understanding.'
+    },
+    {
+      id: 'input',
+      title: 'Input Mechanisms',
+      icon: <Search className="w-4 h-4" />,
+      content: 'Users can interact with the engine in two primary ways: Manual Neural Prompting and Image OCR. Manual prompting allows direct entry of Unicode Brahmi characters using the visual keyboard, while Image OCR attempts to extract sequences directly from photographs of inscriptions or estampages.'
+    },
+    {
+      id: 'pipeline',
+      title: 'Neural Pipeline: Four Stages',
+      icon: <Zap className="w-4 h-4" />,
+      content: '1. ENHANCE: Denoising and contrast refinement using GANs. 2. SEGMENT: Identifying individual glyph boundaries via Mask R-CNN. 3. PREDICT: Mapping glyphs to candidate modern characters with 88% average confidence. 4. RECONSTRUCT: Using contextual LMs to restore missing dots (pulli) and clarify grammar.'
+    },
+    {
+      id: 'translator',
+      title: 'Bi-Directional Translator',
+      icon: <ArrowLeftRight className="w-4 h-4" />,
+      content: 'The core engine now supports bi-directional mapping. You can input modern Tamil to generate authentic historical orthography (e.g., converting modern "தமிழ்" to Ashokan Brahmi "𑀢𑀫𑀺𑀵்"), or input ancient sequences to retrieve modern equivalents with recovered grammar.'
+    },
+    {
+      id: 'unicode',
+      title: 'Unicode Composition Engine',
+      icon: <Layers className="w-4 h-4" />,
+      content: 'Unlike linear scripts, Tamil is an abugida. Our engine handles complex character assembly: it converts visual order (e.g., vowel signs appearing before consonants) into correct logical Unicode strings, ensures proper "pulli" attachment, and applies NFC normalization for web compatibility.'
+    },
+    {
+      id: 'timeline',
+      title: 'Temporal Weight Bias',
+      icon: <History className="w-4 h-4" />,
+      content: 'Language evolves over centuries. By selecting an era (e.g., Ashokan, Chola, Middle Pandya), the model applies specific weight bias to its predictive algorithms, prioritizing vocabulary, orthography, and script styles common during that specific historical period.'
+    },
+    {
+      id: 'visualizer',
+      title: 'Neural Visualizer',
+      icon: <Brain className="w-4 h-4" />,
+      content: 'The Visualizer tab exposes the "black box" of AI. It shows the raw neural prediction weights and candidate glyphs for every detected character. This transparency is crucial for epigraphists to verify AI interpretations against physical evidence.'
+    },
+    {
+      id: 'reporting',
+      title: 'Records & PDF Export',
+      icon: <FileText className="w-4 h-4" />,
+      content: 'Every successful reconstruction is cached in the Records module. Users can generate professional PDF reports inclusive of glyph diagnostics, modern transliteration, and AI-detected grammar notes, facilitating academic preservation and digital archiving.'
+    }
+  ];
+
   return (
-    <div className="flex flex-col">
-       <span className="text-[8px] uppercase opacity-40 tracking-widest">{label}</span>
-       <span className={`text-[10px] font-mono leading-none ${color}`}>{value}</span>
+    <div className="flex flex-col h-full bg-[#050505]">
+      <div className="h-16 border-b border-brand-red/20 flex items-center justify-between px-8 bg-brand-dark/50 shrink-0">
+        <div className="flex items-center gap-3">
+          <HelpCircle className="w-5 h-5 text-brand-red" />
+          <h2 className="text-sm font-black uppercase tracking-[0.3em] font-sans">Documentation & System Architecture</h2>
+        </div>
+        <button 
+          onClick={onClose}
+          className="w-10 h-10 border border-brand-parchment/10 flex items-center justify-center hover:bg-brand-red/10 transition-colors"
+        >
+          <X className="w-5 h-5" />
+        </button>
+      </div>
+      
+      <div className="flex-1 overflow-y-auto p-12 scrollbar-thin scrollbar-thumb-brand-red/20">
+        <div className="max-w-4xl mx-auto space-y-16">
+          <div className="space-y-4">
+             <span className="text-[10px] text-brand-red font-bold uppercase tracking-widest font-sans">Protocol v3.0 // ARCHIVE_INIT</span>
+             <h1 className="text-5xl font-black tracking-tighter leading-none mb-4 italic uppercase">Deciphering the vanished ink.</h1>
+             <p className="text-xl opacity-60 font-serif leading-relaxed max-w-2xl">
+               Welcome to the Thonmai Operating Environment. This guide outlines the core functional parameters of the neural restoration engine.
+             </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            {sections.map((section) => (
+              <motion.div 
+                key={section.id}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                className="p-8 border border-brand-parchment/5 bg-brand-parchment/[0.02] hover:border-brand-red/20 transition-colors group"
+              >
+                <div className="w-10 h-10 bg-brand-red/10 border border-brand-red/30 flex items-center justify-center mb-6 text-brand-red">
+                  {section.icon}
+                </div>
+                <h3 className="text-xs uppercase font-black font-sans tracking-widest mb-4 border-l-2 border-brand-red pl-4 leading-none">
+                  {section.title}
+                </h3>
+                <p className="text-sm opacity-50 font-sans leading-relaxed group-hover:opacity-80 transition-opacity">
+                  {section.content}
+                </p>
+              </motion.div>
+            ))}
+          </div>
+
+          <div className="border-t border-brand-parchment/10 pt-16">
+            <h2 className="text-xs uppercase font-black tracking-[0.5em] mb-12 flex items-center gap-4">
+              <Zap className="w-4 h-4 text-brand-red" /> Technical Specifications
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-12">
+               <div className="space-y-4">
+                  <h4 className="text-[10px] uppercase font-bold text-brand-red">Neural Architecture</h4>
+                  <p className="text-xs opacity-50 leading-relaxed font-sans">
+                    Utilizes a hybrid Transformer-CNN model. The encoder processes raw pixel data from inscriptions, while a 12-layer decoder with self-attention maps glyph sequences back to logical Tamil abugida units.
+                  </p>
+               </div>
+               <div className="space-y-4">
+                  <h4 className="text-[10px] uppercase font-bold text-brand-red">Orthographic Correction</h4>
+                  <p className="text-xs opacity-50 leading-relaxed font-sans">
+                    The model identifies missing "pullis" (dots) which often erode over time. It uses a cross-entropy loss function optimized on a 1.2M character training set derived from epigraphical estampages.
+                  </p>
+               </div>
+               <div className="space-y-4">
+                  <h4 className="text-[10px] uppercase font-bold text-brand-red">Dataset Provenance</h4>
+                  <p className="text-xs opacity-50 leading-relaxed font-sans">
+                    Training data include digital records from the Archaeological Survey of India (ASI) and various state epigraphy departments, spanning 2000 years of script evolution.
+                  </p>
+               </div>
+            </div>
+          </div>
+
+          <div className="space-y-8 bg-brand-parchment/[0.01] p-12 border border-brand-parchment/5">
+             <h3 className="text-xs uppercase font-black tracking-widest border-b border-brand-red/20 pb-4">Frequently Asked Questions</h3>
+             <div className="space-y-6">
+                <div>
+                   <h4 className="text-sm font-bold mb-2">How accurate is the century detection?</h4>
+                   <p className="text-xs opacity-50 leading-relaxed">The model detects the script era with 94% accuracy based on orthographic markers like the shape of 'ka' and 'ma' which changed significantly between Ashokan and Chola periods.</p>
+                </div>
+                <div>
+                   <h4 className="text-sm font-bold mb-2">Can it decipher damaged inscriptions?</h4>
+                   <p className="text-xs opacity-50 leading-relaxed">The "Neural Reconstruction" stage fills in gaps using statistical probability based on Sangam literature patterns, though accuracy decreases if more than 30% of a word is missing.</p>
+                </div>
+             </div>
+          </div>
+
+          <div className="p-12 border-t border-brand-parchment/10 mt-12 bg-gradient-to-t from-brand-red/[0.02] to-transparent">
+             <div className="flex flex-col items-center text-center max-w-xl mx-auto">
+                <Cpu className="w-10 h-10 mb-6 text-brand-red animate-pulse" />
+                <h3 className="text-lg font-bold mb-4 uppercase tracking-widest font-sans">Neural Safety & Authenticity</h3>
+                <p className="text-sm opacity-50 mb-8 leading-relaxed italic">
+                  "Artificial intelligence serves as a tool for restoration, not total reinvention. Always cross-verify neural reconstructions with physical archeological evidence when available."
+                </p>
+                <button 
+                  onClick={onClose}
+                  className="px-8 py-3 bg-brand-red text-white text-xs uppercase tracking-widest font-black transition-transform active:scale-95 font-sans"
+                >
+                  Return to Control Module
+                </button>
+             </div>
+          </div>
+        </div>
+      </div>
     </div>
-  )
+  );
 }
+

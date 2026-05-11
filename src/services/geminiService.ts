@@ -1,4 +1,5 @@
 import { GoogleGenAI, Type, Modality } from "@google/genai";
+import { assembleTamilText, RecognizedChar } from "../lib/tamilComposer";
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
@@ -16,10 +17,12 @@ export interface GlyphCandidate {
 export interface ReconstructionResult {
   modernTamil: string;
   historicalTamil: string;
-  phoneticTransliteration: string; // Added for pronunciation guide
+  phoneticTransliteration: string; 
   confidence: number;
   grammarCorrectionNote: string;
   recoveredWordBoundaries: string[];
+  compositionDebug?: string[];
+  compositionWarnings?: string[];
 }
 
 export interface OCRResult {
@@ -157,22 +160,42 @@ export async function reconstructHistorical(
   century: string
 ): Promise<string> {
   const prompt = `
-    You are an expert in Tamil epigraphy and historical linguistics.
-    TASK: Reconstruct the historical script representation for the given modern Tamil text.
+    You are an expert in Tamil epigraphy and historical linguistics, specializing in the evolution of Tamil scripts.
+    TASK: Reconstruct the historical script representation for the given modern Tamil text with extreme accuracy for the target period.
 
-    TARGET PERIOD: ${century}
+    TARGET PERIOD/ERA: "${century}"
     MODERN INPUT: "${modernTamil}"
 
-    RULES:
-    1. HISTORICAL ORTHOGRAPHY: Apply era-specific writing conventions. 
-       - For early eras (Brahmi/Vatteluttu), omit word boundaries and consonant markers (pulli) where historically accurate.
-       - For transitional eras (Pallava/Chola), use appropriate ligature forms.
-    2. SCRIPT REPRESENTATION: Return the text as it would appear in the script of that era. 
-       - Note: If Unicode doesn't fully support the specific ancient form, use the closest historical Unicode block (e.g., Tamil-Brahmi block or Vatteluttu-compatible Tamil characters).
-    3. PHONETIC FIDELITY: Maintain the phonetic structure while adapting to historical script constraints.
-    4. NO MODERN PUNCTUATION: Remove all modern commas, periods, or spaces if they didn't exist in the target era.
+    CONTEXTUAL GUIDELINES BASED ON PERIOD:
+    1. TAMIL-BRAHMI (Approx. 300 BCE - 300 CE):
+       - Use characters from the Tamil-Brahmi / Brahmi Unicode block.
+       - Strictly omit 'pulli' (dots for consonants).
+       - No word boundaries (continuous script).
+       - Maintain "Mauna" (vowel-less) consonant clusters if applicable.
 
-    Return only the reconstructed string.
+    2. EARLY VATTELUTTU (Approx. 400 CE - 800 CE):
+       - Script is more rounded than Brahmi. 
+       - If Unicode Vatteluttu is unavailable, use the specialized historical mapped characters.
+       - Focus on the 'rounded' nature of letters like 'ta', 'pa', 'ma'.
+
+    3. GRANTHA INFLUENCE / EARLY MEDIEVAL (Approx. 600 CE - 1000 CE):
+       - Incorporate Sanskrit-derived Grantha characters for 'sha', 'ssa', 'ja', 'ha' if they appear in the input.
+       - Script transition period between Vatteluttu and Medieval Tamil.
+
+    4. IMPERIAL CHOLA (Approx. 1000 CE - 1300 CE):
+       - More recognizable as ancestor to modern Tamil but with significant ornate variations.
+       - Use 'pulli' selectively as per epigraphical evidence of that era.
+
+    5. MODERN SCRIPT (Approx. 1500 CE+):
+       - Standard modern Tamil orthography with fully evolved characters.
+
+    CORE RULES:
+    1. HISTORICAL ORTHOGRAPHY: Apply era-specific writing conventions strictly.
+    2. SCRIPT REPRESENTATION: Return the text ONLY in the script of that era.
+    3. NO EXPLANATIONS: Return only the reconstructed string.
+    4. NO MODERN PUNCTUATION.
+
+    HISTORICAL VALIDATION: Ensure the characters used are authentic to the epigraphical corpus of ${century}.
   `;
 
   try {
@@ -195,7 +218,7 @@ export async function reconstructTamil(
 ): Promise<ReconstructionResult> {
   const prompt = `
     You are an expert ancient Tamil Epigrapher. 
-    TASK: Convert the detected glyph sequence into modern Tamil translitration.
+    TASK: Convert the detected glyph sequence into modern Tamil translitration. Mention the "${century}" context explicitly in the grammarCorrectionNote.
 
     CURRENT MODE: ${mode === 'literal' ? 'LITERAL TRANSLITERATION (PRIORITIZE VISUAL EVIDENCE)' : 'HISTORICAL RECONSTRUCTION (ALLOW CONTEXTUAL RESTORATION)'}
 
@@ -252,17 +275,43 @@ export async function reconstructTamil(
     });
 
     const result = JSON.parse(response.text);
+
+    // Apply Tamil Unicode Composition for proper orthography
+    // Convert prediction candidates to RecognizedChar format for the composer
+    const recognizedChars: RecognizedChar[] = candidates.map(c => ({
+      character: c.predictions[0].char,
+      confidence: c.predictions[0].probability,
+    }));
+
+    const composition = assembleTamilText(recognizedChars);
+    
+    // Use composed text if AI output is simple concatenation or looks fragmented
+    // For now, we'll favor AI output but ensure it's at least NFC normalized
+    result.modernTamil = result.modernTamil.normalize('NFC');
+    result.compositionDebug = composition.debugSteps;
+    result.compositionWarnings = composition.warnings;
+    
     return result;
   } catch (error) {
     console.error("Tamil Reconstruction Failed:", error);
-    // Fallback to basic join if AI fails
+    
+    // Fallback to the dedicated Tamil Composition Engine if AI fails
+    const recognizedChars: RecognizedChar[] = candidates.map(c => ({
+      character: c.predictions[0].char,
+      confidence: c.predictions[0].probability,
+    }));
+
+    const composition = assembleTamilText(recognizedChars);
+
     return {
-      modernTamil: candidates.map(c => c.predictions[0].char).join(''),
-      historicalTamil: candidates.map(c => c.predictions[0].char).join(''),
-      phoneticTransliteration: candidates.map(c => c.predictions[0].char).join(''),
+      modernTamil: composition.composedText,
+      historicalTamil: composition.composedText, // Fallback best effort
+      phoneticTransliteration: "",
       confidence: 0.5,
-      grammarCorrectionNote: "AI processing failed, using raw glyph mapping.",
-      recoveredWordBoundaries: []
+      grammarCorrectionNote: "AI processing failed, using deterministic Unicode Composition Engine.",
+      recoveredWordBoundaries: [],
+      compositionDebug: composition.debugSteps,
+      compositionWarnings: composition.warnings
     };
   }
 }
